@@ -1,0 +1,1 @@
+{"name":"shop-manager","version":"1.0.0","private":true,"description":"Quản lý bán hàng điện thoại & linh kiện","scripts":{"dev":"npx serve .","start":"npx serve ."}}
