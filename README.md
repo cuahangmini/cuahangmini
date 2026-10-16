@@ -35,3 +35,12 @@ vercel.json     cấu hình Vercel
 
 ## Lưu ý dữ liệu
 Dữ liệu lưu trong trình duyệt (localStorage) của từng máy. Vào mục **Dữ liệu** để tải bản sao lưu JSON định kỳ. Muốn nhiều máy dùng chung cần nối database (Supabase/Firebase).
+
+## Đăng nhập + đồng bộ Supabase
+1. Supabase > SQL Editor: chạy file `supabase/schema.sql`.
+2. Supabase > Authentication > Users > Add user: nhập email + mật khẩu, tích Auto Confirm User.
+3. Supabase > Authentication > Sign In / Providers > Email: tắt "Allow new users to sign up".
+4. Vercel > Settings > Environment Variables: thêm `SUPABASE_CONFIG` = `{"url":"https://<ma-project>.supabase.co","key":"<anon key>"}` rồi Redeploy.
+5. Chạy local: `SUPABASE_CONFIG='{"url":"...","key":"..."}' node build.js && npx serve .`
+
+Không ghi mật khẩu vào code. Mật khẩu chỉ nằm trong Supabase.

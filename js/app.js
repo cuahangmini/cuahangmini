@@ -13,7 +13,11 @@ const seed=()=>({seq:1,
  customers:[{id:1,name:'Nguyễn Văn A',phone:'0901234567',debt:0}],
  invoices:[],imports:[]});
 let db; try{db=JSON.parse(localStorage.getItem('qlbh'))}catch(e){} db=db||seed();
-const save=()=>{try{localStorage.setItem('qlbh',JSON.stringify(db))}catch(e){}};
+const CFG=window.SUPABASE_CONFIG||{};
+let sb=null,uid=null,_t;
+const saveLocal=()=>{try{localStorage.setItem('qlbh',JSON.stringify(db))}catch(e){}};
+const save=()=>{saveLocal();clearTimeout(_t);_t=setTimeout(push,600)};
+async function push(){if(!sb||!uid)return;const {error}=await sb.from('store').upsert({user_id:uid,data:db,updated_at:new Date().toISOString()});if(error)toast('Lỗi đồng bộ: '+error.message)}
 const nid=()=>db.seq++;
 const prod=id=>db.products.find(p=>p.id==id), cust=id=>db.customers.find(c=>c.id==id);
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
@@ -24,7 +28,7 @@ const V=id=>$('#'+id).value, N=id=>+V(id)||0;
 
 const VIEWS={dash:['Tổng quan',dash],pos:['Bán hàng',pos],products:['Hàng hóa',products],imp:['Nhập hàng',imp],cust:['Khách hàng',custs],inv:['Hóa đơn',invs],data:['Dữ liệu',data]};
 let cur='dash';
-function go(v){cur=v;$('#nav').innerHTML='<h1>📱 Quản lý cửa hàng</h1>'+Object.entries(VIEWS).map(([k,[t]])=>`<button class="${k==v?'on':''}" onclick="go('${k}')">${t}</button>`).join('');VIEWS[v][1]()}
+function go(v){cur=v;$('#nav').innerHTML='<h1>📱 Quản lý cửa hàng</h1>'+Object.entries(VIEWS).map(([k,[t]])=>`<button class="${k==v?'on':''}" onclick="go('${k}')">${t}</button>`).join('')+'<button onclick="logout()">Đăng xuất</button>';VIEWS[v][1]()}
 
 /* ---------- TỔNG QUAN ---------- */
 function dash(){
@@ -144,4 +148,24 @@ function data(){
 function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db)],{type:'application/json'}));a.download='sao-luu-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
 function impf(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.products)throw 0;db=d;save();toast('Đã khôi phục');go('dash')}catch(e){toast('File không hợp lệ')}};r.readAsText(f)}
 
-go('dash');
+/* ---------- ĐĂNG NHẬP (Supabase Auth) ---------- */
+function loginUI(msg){
+ $('#nav').style.display='none';
+ $('#app').innerHTML=`<div class="card" style="max-width:360px;margin:12vh auto"><h2>Đăng nhập</h2><label>Email</label><input id="le" type="email" autocomplete="username"><label style="display:block;margin-top:8px">Mật khẩu</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><p class="low">${msg||''}</p><button class="btn" style="width:100%" onclick="login()">Đăng nhập</button></div>`}
+async function login(){
+ const {error}=await sb.auth.signInWithPassword({email:V('le').trim(),password:V('lp')});
+ if(error)return loginUI('Sai email hoặc mật khẩu');
+ start()}
+async function start(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session)return loginUI();
+ uid=session.user.id;
+ const r=await sb.from('store').select('data').eq('user_id',uid).maybeSingle();
+ if(r.error)return loginUI('Không tải được dữ liệu: '+r.error.message);
+ if(r.data&&r.data.data&&r.data.data.products){db=r.data.data;saveLocal()}else await push();
+ $('#nav').style.display='';go('dash')}
+async function logout(){await sb.auth.signOut();try{localStorage.removeItem('qlbh')}catch(e){}location.reload()}
+function boot(){
+ if(!CFG.url||!window.supabase)return loginUI('Chưa cấu hình Supabase (thiếu SUPABASE_CONFIG).');
+ sb=window.supabase.createClient(CFG.url,CFG.key);start()}
+boot();
